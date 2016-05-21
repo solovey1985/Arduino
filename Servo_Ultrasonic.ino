@@ -1,14 +1,31 @@
-
-
 #define TRIGGER_PIN 13
 #define ECHO_PIN     12
 #define RECV_PIN     11
 #define MAX_DISTANCE 200
 
+typedef enum{
+ LEFT,
+ RIGHT,
+ FORWARD,
+ BACKWARD,
+ STOP
+} Directions;
+
+Directions direct;
+
 #include <Servo.h>
 #include "IRremote.h"
 #include <NewPing.h>
 #include <Robo.h>
+
+typedef enum {
+  move,
+  stop,
+  turn
+} MotorCommands;
+
+MotorCommands motorCommand;
+
 NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
 Servo myservo;  // create servo object to control a servo
 IRrecv irrecv(RECV_PIN);
@@ -16,54 +33,76 @@ decode_results results;
 int DistanceCm;
 int val = 0;    // variable to read the value from the analog pin
 bool dir = true;
-String signal;
-bool   isForward, isStop;
+int signal;
 Robo rob;
+
 void setup() {
   myservo.attach(10);
   myservo.write(0);
-  
   Serial.begin(9600);
   pinMode(RECV_PIN, INPUT);
   irrecv.enableIRIn(); // Start the receiver
+  motorCommand = stop;
 }
 
 void loop() {
-ReadIR();
-  
-delay(200);
-  
-  
+  //Read IR commands
+ signal =  ReadIR();
+ SetMotorsCommand();
+ Serial.println(motorCommand);
+  //If Moving 
+    //Get Distance to an obstacle
+    //If Distance is critical
+      //Stop Move
+      //Find direction to turn
+      //Make turn
+      //Move forward
 
- 
+   //If Time to work is overlimit
+   //Stop and wait for next command from IR controll
+  
+  
+  
   }
-void ReadIR(){
-   String signal;
-   if (irrecv.decode(&results)) // Если данные пришли
+int ReadIR(){
+  if (irrecv.decode(&results)) // Если данные пришли
   {
-    signal = String(results.value, HEX); 
+    signal = int(results.value);
     Serial.println(signal); // Отправляем полученную данную в консоль
     irrecv.resume(); // Принимаем следующую команду
-    decode(signal);
-    Serial.println(isForward); Serial.println(isStop);
+   // decode(signal);
+   delay(500); 
   }
+  return signal;
   }
-void decode(String signal){
+void SetMotorsCommand(){
      
-    if(signal == "ff8877"){
-     isForward = true;
-     isStop = false;
-    }
-    if(signal == "ff48b7"){
-        isForward = false;
-        isStop = true;
-    }
+     switch(signal){
+        case -30601: //Master +
+          motorCommand = move;
+        break;
+        case 18613: //Master -
+          motorCommand = stop;
+        break;
+
+        default:
+          motorCommand = stop;
+        break;
+      }
 }
 //Motor
-void Move(String direction){}
-void Turn(String direction, int degree){}
+void Move(){
+ 
+ }
+
+void Turn(int degree){
+
+  }
 void Stop(){}
 //HC-SR04
-void Scan(String direction, int degree){}
+void Scan(int degree){}
 //IR
-void GetCommand(String IrSignal){}
+
+
+
+
