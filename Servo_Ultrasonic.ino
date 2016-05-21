@@ -3,10 +3,10 @@
 #define RECV_PIN     11
 #define MAX_DISTANCE 200
 //Motors
-#define IN1 2
+#define IN1 2  
 #define IN2 3
-#define IN3 4
-#define IN4 5
+#define IN3 4 //2
+#define IN4 5 //3
 #define ENA 9
 #define ENB 6
 
@@ -38,7 +38,7 @@ IRrecv irrecv(RECV_PIN);
 decode_results results;
 int DistanceCm;
 int val = 0;    // variable to read the value from the analog pin
-bool dir = true;
+bool isCommandSet = false;
 int signal;
 Robo rob;
 int i;
@@ -58,12 +58,14 @@ void setup() {
   pinMode(RECV_PIN, INPUT);
   irrecv.enableIRIn(); // Start the receiver
   motorCommand = STOP;
+ 
 }
 
 void loop() {
+
+
   //Read IR commands
  signal =  ReadIR();
- SetMotorsCommand();
  Serial.println(motorCommand);
  RunMotorCommand();
  delay(1000);
@@ -78,22 +80,24 @@ void loop() {
    //If Time to work is overlimit
    //Stop and wait for next command from IR controll
   
-  
+    /**/
   
   }
 int ReadIR(){
   if (irrecv.decode(&results)) // Если данные пришли
   {
     signal = int(results.value);
+    SetMotorsCommand();
+    RunMotorCommand();
     Serial.println(signal); // Отправляем полученную данную в консоль
     irrecv.resume(); // Принимаем следующую команду
    // decode(signal);
-   delay(500); 
+    
   }
   return signal;
   }
 void SetMotorsCommand(){
-     
+     isCommandSet = false;
      switch(signal){
         case -30601: //Master +
           motorCommand = MOVE;
@@ -109,10 +113,10 @@ void SetMotorsCommand(){
 }
 //Motor
 void Move(){
-  digitalWrite (IN2, HIGH);
-  digitalWrite (IN1, LOW); 
-  digitalWrite (IN4, HIGH);
-  digitalWrite (IN3, LOW); 
+  digitalWrite (IN1, HIGH);
+  digitalWrite (IN2, LOW); 
+  digitalWrite (IN3, HIGH);
+  digitalWrite (IN4, LOW); 
 
  }
 
@@ -131,7 +135,7 @@ void Stop(){
 void Scan(int degree){}
 //IR
 void RunMotorCommand(){
-    
+    if(!isCommandSet){
     switch (motorCommand){
       case 0:
         Move();
@@ -143,10 +147,12 @@ void RunMotorCommand(){
         Stop();
        break;
       }
+      isCommandSet = true;
+     }
   }
 
   void Faster(){
-    for (i = 50; i <= 180; ++i)
+    for (i = 50; i <= 250; ++i)
     {
         analogWrite(ENA, i);
         analogWrite(ENB, i);
