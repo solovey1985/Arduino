@@ -1,3 +1,4 @@
+//#include "solorob.h"
 #define TRIGGER_PIN 13
 #define ECHO_PIN     12
 #define RECV_PIN     11
@@ -22,7 +23,7 @@ Directions direct;
 #include <Servo.h>
 #include "IRremote.h"
 #include <NewPing.h>
-#include <Robo.h>
+
 
 typedef enum {
   MOVE,
@@ -40,7 +41,7 @@ int DistanceCm;
 int val = 0;    // variable to read the value from the analog pin
 bool isCommandSet = false;
 int signal;
-Robo rob;
+
 int i;
 void setup() {
   //Motors
@@ -60,16 +61,18 @@ void setup() {
   motorCommand = STOP;
  
 }
-
+/**/
 void loop() {
 
-
+int pos;
   //Read IR commands
- signal =  ReadIR();
- Serial.println(motorCommand);
- RunMotorCommand();
- delay(1000);
-  //If Moving 
+ ReadIR();
+ 
+  Serial.println(motorCommand);
+  RunMotorCommand();
+  Scan(90);
+  Serial.println(sonar.ping_cm());
+   //If Moving 
     //Get Distance to an obstacle
     //If Distance is critical
       //Stop Move
@@ -83,18 +86,18 @@ void loop() {
     /**/
   
   }
-int ReadIR(){
+void ReadIR(){
   if (irrecv.decode(&results)) // Если данные пришли
   {
     signal = int(results.value);
     SetMotorsCommand();
     RunMotorCommand();
-    Serial.println(signal); // Отправляем полученную данную в консоль
+    // Отправляем полученную данную в консоль
     irrecv.resume(); // Принимаем следующую команду
    // decode(signal);
     
   }
-  return signal;
+ 
   }
 void SetMotorsCommand(){
      isCommandSet = false;
@@ -120,8 +123,20 @@ void Move(){
 
  }
 
-void Turn(int degree){
-
+void Turn(){
+    if(direct == LEFT){
+        digitalWrite (IN1, HIGH);
+        digitalWrite (IN2, LOW); 
+        digitalWrite (IN3, LOW);
+        digitalWrite (IN4, HIGH);    
+      }
+    if(direct == RIGHT){
+        digitalWrite (IN1, LOW);
+        digitalWrite (IN2, HIGH); 
+        digitalWrite (IN3, HIGH);
+        digitalWrite (IN4, LOW);    
+      }
+      direct = FORWARD;
   }
 void Stop(){
   
@@ -132,7 +147,38 @@ void Stop(){
   
   }
 //HC-SR04
-void Scan(int degree){}
+void Scan(int degree){
+    DistanceCm = sonar.ping_cm();
+	if (DistanceCm < 10) {
+		motorCommand = STOP;
+    myservo.write(0);
+    delay(1000);
+    DistanceCm = sonar.ping_cm();
+      if(DistanceCm >= 25)
+        {
+          direct = RIGHT;
+          Turn();
+          
+        }
+        else{
+            myservo.write(180);
+            delay(1000);
+            DistanceCm = sonar.ping_cm();
+            if(DistanceCm>=25)
+            {
+              direct = LEFT;
+              Turn();  
+              
+            }
+          }
+	}
+	else {
+		motorCommand = MOVE;
+	}
+	isCommandSet = false;
+  myservo.write(90);
+  delay(200);
+  }
 //IR
 void RunMotorCommand(){
     if(!isCommandSet){
