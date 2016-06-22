@@ -11,6 +11,10 @@
 #define ENA 9
 #define ENB 6
 
+#include <Servo.h>
+#include "IRremote.h"
+#include <NewPing.h>
+
 typedef enum{
  LEFT,
  RIGHT,
@@ -20,10 +24,10 @@ typedef enum{
 
 Directions direct;
 
-#include <Servo.h>
-#include "IRremote.h"
-#include <NewPing.h>
 
+typedef enum {
+  
+} RoboState;
 
 typedef enum {
   MOVE,
@@ -32,6 +36,7 @@ typedef enum {
 } MotorCommands;
 
 MotorCommands motorCommand;
+RoboState roboState;
 
 NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
 Servo myservo;  // create servo object to control a servo
@@ -40,7 +45,8 @@ decode_results results;
 int DistanceCm;
 int val = 0;    // variable to read the value from the analog pin
 bool isCommandSet = false;
-int signal;
+int newSignal;
+int oldSignal;
 
 int i;
 void setup() {
@@ -63,69 +69,28 @@ void setup() {
 }
 /**/
 void loop() {
-
-int pos;
-  //Read IR commands
- ReadIR();
- 
-  Serial.println(motorCommand);
-  RunMotorCommand();
-  Scan(90);
-  Serial.println(sonar.ping_cm());
-   //If Moving 
-    //Get Distance to an obstacle
-    //If Distance is critical
-      //Stop Move
-      //Find direction to turn
-      //Make turn
-      //Move forward
-
-   //If Time to work is overlimit
-   //Stop and wait for next command from IR controll
-  
-    /**/
-  
+   
+    ReadIR();
+    delay(100);
+    Watch();
+    if(!isCommandSet){
+      RunMotorCommand();  
+    }    
   }
-void ReadIR(){
-  if (irrecv.decode(&results)) // Если данные пришли
-  {
-    signal = int(results.value);
-    SetMotorsCommand();
-    RunMotorCommand();
-    // Отправляем полученную данную в консоль
-    irrecv.resume(); // Принимаем следующую команду
-   // decode(signal);
-    
+  void Watch(){
+    DistanceCm = sonar.ping_cm();
+    delay(50);
+    if(DistanceCm != 0 && IsObstacle()){
+       Serial.println("---Watch---");
+       Serial.println(sonar.ping_cm());
+       motorCommand = STOP;
+       isCommandSet = false;
+    }
   }
- 
-  }
-void SetMotorsCommand(){
-     isCommandSet = false;
-     switch(signal){
-        case -30601: //Master +
-          motorCommand = MOVE;
-        break;
-        case 18613: //Master -
-          motorCommand = STOP;
-        break;
-
-        default:
-          motorCommand = STOP;
-        break;
-      }
-}
-//Motor
-void Move(){
-  digitalWrite (IN1, HIGH);
-  digitalWrite (IN2, LOW); 
-  digitalWrite (IN3, HIGH);
-  digitalWrite (IN4, LOW); 
-
- }
-
-void Turn(){
+  void Turn(int t){
+   Serial.println("---Turn---");
     if(direct == LEFT){
-        digitalWrite (IN1, HIGH);
+        digitalWrite (IN1, LOW);
         digitalWrite (IN2, LOW); 
         digitalWrite (IN3, LOW);
         digitalWrite (IN4, HIGH);    
@@ -133,54 +98,51 @@ void Turn(){
     if(direct == RIGHT){
         digitalWrite (IN1, LOW);
         digitalWrite (IN2, HIGH); 
-        digitalWrite (IN3, HIGH);
+        digitalWrite (IN3, LOW);
         digitalWrite (IN4, LOW);    
       }
+      delay(t);
+        digitalWrite (IN1, LOW);
+        digitalWrite (IN2, LOW); 
+        digitalWrite (IN3, LOW);
+        digitalWrite (IN4, LOW);
       direct = FORWARD;
   }
-void Stop(){
-  
-  digitalWrite (IN2, LOW);
-  digitalWrite (IN1, LOW); 
-  digitalWrite (IN4, LOW);
-  digitalWrite (IN3, LOW); 
-  
+void ReadIR(){
+  if (irrecv.decode(&results)) // Если данные пришли
+    {
+      newSignal = int(results.value);
+      Serial.println(newSignal); 
+      SetMotorsCommand(); 
+      RunMotorCommand();
+      irrecv.resume(); // Принимаем следующую команду
+    }
+ 
   }
-//HC-SR04
-void Scan(int degree){
-    DistanceCm = sonar.ping_cm();
-	if (DistanceCm < 10) {
-		motorCommand = STOP;
-    myservo.write(0);
-    delay(1000);
-    DistanceCm = sonar.ping_cm();
-      if(DistanceCm >= 25)
-        {
-          direct = RIGHT;
-          Turn();
-          
-        }
-        else{
-            myservo.write(180);
-            delay(1000);
-            DistanceCm = sonar.ping_cm();
-            if(DistanceCm>=25)
-            {
-              direct = LEFT;
-              Turn();  
-              
-            }
-          }
-	}
-	else {
-		motorCommand = MOVE;
-	}
-	isCommandSet = false;
-  myservo.write(90);
-  delay(200);
-  }
-//IR
+  
+void SetMotorsCommand(){
+     if(newSignal != oldSignal){
+     isCommandSet = false;
+     switch(newSignal){
+        case -30601: //Master +
+          motorCommand = MOVE;
+          Serial.println("MOVE command is setted");
+        break;
+        case 18615: //Master -
+          motorCommand = STOP;
+          Serial.println("STOP command is setted");
+        break;
+
+        default:
+          motorCommand = STOP;
+        break;
+      }
+      oldSignal = newSignal;
+      }
+}
+
 void RunMotorCommand(){
+   Serial.println("---Run Motor Command---");
     if(!isCommandSet){
     switch (motorCommand){
       case 0:
@@ -196,13 +158,68 @@ void RunMotorCommand(){
       isCommandSet = true;
      }
   }
+//Motor
+void Move(){
+   Serial.println("---Move---");
+  digitalWrite (IN1, HIGH);
+  digitalWrite (IN2, LOW); 
+  digitalWrite (IN3, HIGH);
+  digitalWrite (IN4, LOW); 
+
+ }
+
+
+void Stop(){
+   Serial.println("---Stop---");
+  digitalWrite (IN2, LOW);
+  digitalWrite (IN1, LOW); 
+  digitalWrite (IN4, LOW);
+  digitalWrite (IN3, LOW); 
+  
+  }
+//HC-SR04
+void Scan(){
+   Serial.println("---Scan---");
+    DistanceCm = sonar.ping_cm();
+	if (IsObstacle()) {
+		motorCommand = STOP;
+    myservo.write(0);
+    delay(200);
+    DistanceCm = sonar.ping_cm();
+      if(IsObstacle())
+        {
+          direct = RIGHT;
+          Turn(3000);
+          
+        }
+        else{
+            myservo.write(180);
+            delay(200);
+            DistanceCm = sonar.ping_cm();
+            if(IsObstacle())
+            {
+              direct = LEFT;
+              Turn(3000);  
+              
+            }
+          }
+	}
+	else {
+		motorCommand = MOVE;
+	}
+	isCommandSet = false;
+  myservo.write(90);
+  delay(200);
+  }
+//IR
+
 
   void Faster(){
     for (i = 50; i <= 250; ++i)
     {
         analogWrite(ENA, i);
         analogWrite(ENB, i);
-        delay(30);
+        delay(50);
     }
   }
 
@@ -214,6 +231,22 @@ void RunMotorCommand(){
         delay(30);
     }  
   }
+  int SetScanningAngle(){
+    return 90;
+  }
+  bool IsObstacle(){
+    return DistanceCm <= 15;
+  }
+  bool CanMove(){
+    return true;
+  }
 
+  bool ShouldStop(){
+    return false;
+   }
+
+
+
+  
 
 
